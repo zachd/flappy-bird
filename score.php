@@ -1,20 +1,22 @@
 <?php
 
+// Nice Time function from http://php.net/manual/en/function.time.php#89415
 function nicetime($date){
     if(empty($date)) return "Unknown"; $periods  = array("sec", "min", "hr", "day", "wk", "mth", "yr", "dcde");
     $lengths = array("60","60","24","7","4.35","12","10");$now = time();$unix_date = $date;if(empty($unix_date)) return "Bad date";
-    if($now > $unix_date) {    
-        $difference = $now - $unix_date;$tense = "ago"; 
-    } else {
-        $difference = $unix_date - $now; $tense = "from now"; }
+    if($now > $unix_date){ $difference = $now - $unix_date;$tense = "ago";} else {$difference = $unix_date - $now; $tense = "from now";}
     for($j = 0; $difference >= $lengths[$j] && $j < count($lengths)-1; $j++) 
     $difference /= $lengths[$j]; $difference = round($difference);
     if($difference != 1) $periods[$j].= "s";$returnstring = "$difference $periods[$j] {$tense}";
     return (($returnstring == "0 secs from now" || $returnstring == "1 sec from now") ? "just now" : $returnstring);
 }
+
+// Returns a list of users online now
 function printusers($currentname) {
   $array = array(); $onlinetime = array(); $onlineplays = array(); $countonline = array(); $totalplays = 0;
   $mostactiveusercount = 0; $mostactiveuser = ""; $totalscore = 0;
+  
+  // Loops through all users in score directory
   if ($handle = opendir('scores')) {
     while (false !== ($entry = readdir($handle)))
       if ($entry != "." && $entry != ".."){
@@ -32,7 +34,7 @@ function printusers($currentname) {
             $mostactiveusercount = $userplays;
             $mostactiveuser = $entry;
           }
-          // Add to countonline array
+          // Add to count online array
           if(time() - filemtime("/home/zach/flappy/scores/" . $entry) <= 600){
             $countonline[$entry] = $fileresults[1];
             $onlinetime[$entry] = filemtime("/home/zach/flappy/scores/" . $entry);
@@ -48,25 +50,34 @@ function printusers($currentname) {
       }
     closedir($handle);
   }
+  // Sort array
   arsort($array);
+  
+  // Print users online
   echo '<span id="usersheader">'.(count($countonline) == 0 ? 'NO ONE' : (count($countonline) == 1 ? 
        '1 USER' : count($countonline).' USERS')).' ONLINE</span><br /><br />';
   $i = 1;
+  // Print list of users currently online now
+  // Show name in red if the score is in top 35
   foreach($array as $name => $score){
     if($score < 1000){
       if(array_key_exists($name, $countonline)){
         echo '<span title="Seen: '.nicetime($onlinetime[$name]).' - Plays: '.number_format($onlineplays[$name]).'">'.$i.'. <span id="'.$name.'"'
         .($name == $currentname ? ' style="color:'.($i <= 35 ? '#FFD700' : 'red').';font-weight:bold;"' : '')
-        .'>'.$name.'</span> '.($name == $currentname ? '<b>'.floor($score).'</b>'/*' ('.$fileresults[2].')'*/ : floor($score)/*.' ('.$fileresults[2].')'*/).'<br /></span>';
+        .'>'.$name.'</span> '.($name == $currentname ? '<b>'.floor($score).'</b>' : floor($score)).'<br /></span>';
       }
       $i++;
     }
   }
-  // TIME WASTED: (total hiscores) + (total hiscores * 2 secs) + ((total plays - num users) * avg) + ((total plays - num users) * 2 secs)
-  $totaltimewasted = ($totalscore + (count($array) * 2) + (($totalplays - count($array)) * ($avgscoreperuser + 2)));
+  
+  // Calculate total time wasted on site using average score * total plays in seconds 
+  // 1 point = 1 second for a game, and each game = 2 seconds + total points
+  // Algorithm: [ (total of all hiscores) + (extra 2 secs) ] +  [ (plays with unknown score) * (avg score + extra 2 secs) ]
   $avgplaysperuser = $totalplays/count($array);
   $avgscoreperuser = $totalscore/count($array);
+  $totaltimewasted = ($totalscore + (count($array) * 2) + (($totalplays - count($array)) * ($avgscoreperuser + 2)));
   
+  // Print playing stats section
   echo '<span id="playingstats">';
   echo '<!--<br /><span id="usersheader" title="Plays: '.number_format($mostactiveusercount).'">MOST ACTIVE: '.$mostactiveuser.' ('.number_format($mostactiveusercount).')</span>';
   echo '<br />-->';
@@ -74,7 +85,7 @@ function printusers($currentname) {
   echo '<br /><span id="usersheader">GLOBAL PLAYS: '.number_format($totalplays).'</span>';
   echo '<br /><span id="usersheader">TOTAL POINTS: '.number_format($totalscore).'</span>';
   echo '<br />';
-  echo '<br /><span id="usersheader">AVG TIME: ~'.round((($totaltimewasted / count($array))), 1).' SECS</span>';
+  echo '<br /><span id="usersheader">AVG TIME: ~'.round((($totaltimewasted / $totalplays)), 1).' SECS</span>';
   echo '<br /><span id="usersheader">TIME WASTED: ~'.round(($totaltimewasted / 3600), 1).' HRS</span>';
   echo '<br />';
   echo '<!--<br /><span id="usersheader">LAST HOUR: '.($counthour == 0 ? 'NO PLAYERS' : ($counthour == 1 ? 
@@ -86,8 +97,11 @@ function printusers($currentname) {
   echo '</span>';
 }
 
+// Prints a list of all the current hiscores
 function printscores($currentname, $all) {
   $array = array(); $arraytime = array(); $arrayplays = array();
+  
+  // Loop through the scores directory
   if ($handle = opendir('scores')) {
     while (false !== ($entry = readdir($handle)))
       if ($entry != "." && $entry != ".."){
@@ -99,6 +113,8 @@ function printscores($currentname, $all) {
     closedir($handle);
    }
   arsort($array);
+  
+  // Print the scoreboard section
   echo '<span id="scoreheader">SCOREBOARD ('.count($array).')</span><br /><br />';
   $i = 1;
   foreach($array as $name => $score){
@@ -107,6 +123,7 @@ function printscores($currentname, $all) {
       $i.'. <span id="'.$name.'"'.($name == $currentname ? ' style="color:#FFD700;"' : '').'>'.$name.'</span> '.
       ($name == $currentname ? '<b>'.floor($score).'</b>' : floor($score)).'<br /></span>';
       $i++;
+      // Only show top 35 on the page unless "Show All" flag set
       if($i == 36){
         if(array_search($currentname,array_keys($array)) >= 36)
           echo '&nbsp;|<br /><span title="Seen: '.nicetime($arraytime[$currentname]).' - Plays: '.$arrayplays[$currentname].'">'.
@@ -121,13 +138,16 @@ function printscores($currentname, $all) {
   echo "</span>";
 }
 
+// Receive post request
 if((/*isset($_SERVER['HTTP_REFERER']) && strcasecmp($_SERVER['HTTP_CONNECTION'], 'keep-alive') == 0 && isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) &&*/ !(stripos($_SERVER['HTTP_USER_AGENT'], 'wget') !== false)) || $_POST['test'] == 1){
 
   // Name Check - ALLOW: A-Z a-z 0-9 = > < . - _ ~ , ; : [ ] ( )
   $name = substr(preg_replace("([^\w\s\d\=\>\<\.\-_~,;:\[\]\(\)])", '', strip_tags(ucfirst($_POST['name']))), 0, 10);
   while(substr($name, 0, 1) == " ") $name = substr($name, 1, strlen($name));
 
-  // Do Processing
+  // Do POST Processing
+  
+  // Get top scores
   if($_POST['top'] == 1){
     $array = array();
     if ($handle = opendir('scores')) {
@@ -145,8 +165,9 @@ if((/*isset($_SERVER['HTTP_REFERER']) && strcasecmp($_SERVER['HTTP_CONNECTION'],
       preg_match("~(\d+)\|?(\d*).*?~", file_get_contents("/home/zach/flappy/scores/" . $name), $fileresults);
       echo $fileresults[1];
     }
+  // Save score to file if legitimate
   } else if($_POST['name'] && strlen($name) > 0 && $_POST['score'] >= 0){
-    if(!($name == "Please enter your name" || $name == "null" || !$name)){
+    if(!(!$name || $name == "Please enter your name" || $name == "null")){
       if($_POST['score'] < 1000){ // Valid Score
         if (!file_exists("/home/zach/flappy/scores/".$name)){ // No File Exists
           file_put_contents("/home/zach/flappy/scores/".$name, floor($_POST['score']) ."|". floor($_POST['score']) ."|". "1");
@@ -158,6 +179,7 @@ if((/*isset($_SERVER['HTTP_REFERER']) && strcasecmp($_SERVER['HTTP_CONNECTION'],
             $plays = 0;
           else
             $plays = intval($fileresults[3]);
+            
           // Get high score number
           if($fileresults[1] < $_POST['score']) 
             $scoretoadd = floor($_POST['score']);
@@ -175,7 +197,7 @@ if((/*isset($_SERVER['HTTP_REFERER']) && strcasecmp($_SERVER['HTTP_CONNECTION'],
     printusers($name); // Update Users Online
   }
 } else {
-	file_put_contents("test.log",  file_get_contents("test.log")."Bad Request from ".$_SERVER['REMOTE_ADDR']." (".date('m/d/Y h:i:s a', time())."):
+   file_put_contents("test.log",  file_get_contents("test.log")."Bad Request from ".$_SERVER['REMOTE_ADDR']." (".date('m/d/Y h:i:s a', time())."):
   ".var_export($_SERVER, true)."
   ".var_export($_POST, true)." 
 ");
